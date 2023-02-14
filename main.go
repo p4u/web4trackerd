@@ -55,11 +55,14 @@ var connectionLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, 
 	fmt.Printf("Connection Lost: %s\n", err.Error())
 }
 
+type Locations struct {
+	Locations map[int]*Location `json:"locations"`
+}
+
 type Location struct {
 	Latitude  float64   `json:"latitude"`
 	Longitude float64   `json:"longitude"`
 	Timestamp time.Time `json:"timestamp"`
-	Index     int       `json:"index"`
 }
 
 func greaterThanDistance(location1, location2 *Location, meters int) bool {
@@ -118,7 +121,9 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := api.RegisterMethod("/locations", "GET", apirest.MethodAccessTypePublic, func(a *apirest.APIdata, h *httprouter.HTTPContext) error {
-		locations := []Location{}
+		locations := Locations{
+			Locations: make(map[int]*Location),
+		}
 		db.Iterate([]byte("loc_"), func(key, value []byte) bool {
 			location := Location{}
 			if err := json.Unmarshal(value, &location); err != nil {
@@ -134,8 +139,7 @@ func main() {
 				log.Warnf("could not decode location index: %s", err)
 				return true
 			}
-			location.Index = index
-			locations = append(locations, location)
+			locations.Locations[index] = &location
 			return true
 		})
 		data, err := json.Marshal(&locations)
